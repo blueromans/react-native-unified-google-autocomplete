@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /**
  * React Native Google Places Autocomplete
  * A React Native component that provides a Google Places Autocomplete search box
@@ -401,6 +402,7 @@ export const GooglePlacesAutocomplete = forwardRef<
       sessionToken,
       supportedPlatform,
       url,
+      props.debounce,
     ]
   );
 
