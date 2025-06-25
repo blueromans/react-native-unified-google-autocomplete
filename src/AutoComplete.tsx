@@ -24,8 +24,8 @@ import {
   Platform,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
-  TouchableHighlight,
   type ListRenderItemInfo,
 } from 'react-native';
 
@@ -272,11 +272,19 @@ export const GooglePlacesAutocomplete = forwardRef<
             'Content-Type': 'application/json',
           };
         } else {
-          requestUrl =
-            `${url}/place/autocomplete/json?input=` +
-            encodeURIComponent(text) +
-            '&' +
-            JSON.stringify(props.query);
+          const params = new URLSearchParams();
+          params.append('input', text);
+
+          // Add all query parameters
+          if (props.query) {
+            Object.entries(props.query).forEach(([key, value]) => {
+              if (value !== undefined && value !== null) {
+                params.append(key, String(value));
+              }
+            });
+          }
+
+          requestUrl = `${url}/place/autocomplete/json?${params.toString()}`;
         }
 
         setListLoaderDisplayed(true);
@@ -351,6 +359,7 @@ export const GooglePlacesAutocomplete = forwardRef<
           .catch((error) => {
             clearTimeout(timeoutId);
             setListLoaderDisplayed(false);
+            _disableRowLoaders(); // Ensure row loaders are disabled on error
             if (error.name === 'AbortError') {
               // Request was aborted (either by timeout or _abortRequests)
               // console.warn("google places autocomplete: request could not be completed or has been aborted");
@@ -376,7 +385,23 @@ export const GooglePlacesAutocomplete = forwardRef<
         );
       }
     },
-    [_abortRequests, props, sessionToken, supportedPlatform, url]
+    [
+      _abortRequests,
+      _disableRowLoaders,
+      props.minLength,
+      props.timeout,
+      props.onTimeout,
+      props.preProcess,
+      props.requestUrl,
+      props.query,
+      props.predefinedPlaces,
+      props.currentLocation,
+      props.currentLocationLabel,
+      props.predefinedPlacesAlwaysVisible,
+      sessionToken,
+      supportedPlatform,
+      url,
+    ]
   );
 
   // Create debounced version of request function
@@ -513,6 +538,7 @@ export const GooglePlacesAutocomplete = forwardRef<
             return response.json();
           })
           .then((responseJSON) => {
+            console.log('Nearby places API response:', responseJSON);
             _disableRowLoaders();
 
             if (typeof responseJSON.results !== 'undefined') {
@@ -557,6 +583,7 @@ export const GooglePlacesAutocomplete = forwardRef<
           .catch((error) => {
             clearTimeout(timeoutId);
             setListLoaderDisplayed(false);
+            _disableRowLoaders(); // Ensure row loaders are disabled on error
             if (error.name === 'AbortError') {
               // Request was aborted (either by timeout or _abortRequests)
               // console.warn("google places autocomplete: request could not be completed or has been aborted");
@@ -665,10 +692,18 @@ export const GooglePlacesAutocomplete = forwardRef<
    */
   const _onPress = useCallback(
     (rowData: ResultType) => {
+      console.log('_onPress called with rowData:', rowData);
+
       if (rowData.isPredefinedPlace !== true && props.fetchDetails === true) {
+        console.log('Fetching details for place:', rowData.description);
+        console.log('rowData.isLoading:', rowData.isLoading);
         if (rowData.isLoading === true) {
-          // already requesting
-          return;
+          console.log(
+            'Place is already loading, clearing loading state and proceeding...'
+          );
+          // Clear the loading state as a safety mechanism to prevent stuck state
+          rowData.isLoading = false;
+          _disableRowLoaders();
         }
 
         Keyboard.dismiss();
@@ -690,24 +725,30 @@ export const GooglePlacesAutocomplete = forwardRef<
 
         let requestUrl = '';
         if (props.isNewPlacesAPI) {
-          requestUrl =
-            `${url}/v1/places/${rowData.place_id}?` +
-            JSON.stringify({
-              key: (props.query as any).key,
-              sessionToken,
-              fields: props.fields,
-            });
+          const params = new URLSearchParams();
+          params.append('key', (props.query as any).key);
+          params.append('sessionToken', sessionToken);
+          params.append('fields', props.fields || '');
+          requestUrl = `${url}/v1/places/${rowData.place_id}?${params.toString()}`;
           setSessionToken(new Date().getTime().toString());
         } else {
-          requestUrl =
-            `${url}/place/details/json?` +
-            JSON.stringify({
-              key: (props.query as any).key,
-              placeid: rowData.place_id,
-              language: (props.query as any).language,
-              ...(props.GooglePlacesDetailsQuery || {}),
-            });
+          const params = new URLSearchParams();
+          params.append('key', (props.query as any).key);
+          params.append('placeid', rowData.place_id || '');
+          params.append('language', (props.query as any).language || 'en');
+
+          // Add any additional query parameters
+          if (props.GooglePlacesDetailsQuery) {
+            Object.entries(props.GooglePlacesDetailsQuery).forEach(
+              ([key, value]) => {
+                params.append(key, String(value));
+              }
+            );
+          }
+          requestUrl = `${url}/place/details/json?${params.toString()}`;
         }
+
+        setListLoaderDisplayed(true);
 
         fetch(requestUrl, {
           method: 'GET',
@@ -719,6 +760,7 @@ export const GooglePlacesAutocomplete = forwardRef<
         })
           .then((response) => {
             clearTimeout(timeoutId);
+            setListLoaderDisplayed(false);
             if (!response.ok) {
               throw new Error(
                 `HTTP error! status: ${response.status}, message: ${response.statusText}`
@@ -727,10 +769,12 @@ export const GooglePlacesAutocomplete = forwardRef<
             return response.json();
           })
           .then((responseJSON) => {
+            console.log('Place details API response:', responseJSON);
             if (
               responseJSON.status === 'OK' ||
               (props.isNewPlacesAPI && responseJSON.id)
             ) {
+              console.log('Place details API returned OK status');
               const details = props.isNewPlacesAPI
                 ? responseJSON
                 : responseJSON.result;
@@ -746,7 +790,13 @@ export const GooglePlacesAutocomplete = forwardRef<
               }
 
               if (props.onPress) {
+                console.log('Calling props.onPress with:', {
+                  placeData: toGooglePlaceData(rowData),
+                  details: details,
+                });
                 props.onPress(toGooglePlaceData(rowData), details);
+              } else {
+                console.log('props.onPress is not defined');
               }
             } else {
               _disableRowLoaders();
@@ -771,7 +821,8 @@ export const GooglePlacesAutocomplete = forwardRef<
           })
           .catch((error) => {
             clearTimeout(timeoutId);
-            _disableRowLoaders();
+            setListLoaderDisplayed(false);
+            _disableRowLoaders(); // Ensure row loaders are disabled on error
             if (error.name === 'AbortError') {
               // Request was aborted (either by timeout or _abortRequests)
               if (!props.onFail) {
@@ -806,6 +857,7 @@ export const GooglePlacesAutocomplete = forwardRef<
 
         getCurrentLocation();
       } else {
+        console.log('Handling predefined or non-fetchDetails place:', rowData);
         const description = _renderDescription(rowData);
         setStateText(description);
 
@@ -820,13 +872,17 @@ export const GooglePlacesAutocomplete = forwardRef<
           rowData,
           props.predefinedPlaces
         );
+        console.log('Predefined place:', predefinedPlace);
 
         // sending predefinedPlace as details for predefined places
         if (props.onPress) {
+          console.log('Calling props.onPress for predefined place');
           props.onPress(
             toGooglePlaceData(predefinedPlace),
             toGooglePlaceDetail(predefinedPlace)
           );
+        } else {
+          console.log('props.onPress is not defined for predefined place');
         }
       }
     },
@@ -906,16 +962,34 @@ export const GooglePlacesAutocomplete = forwardRef<
   const _renderRow = useCallback(
     (item: ListRenderItemInfo<ResultType>) => {
       const rowData = item.item;
+
+      const handleRowPress = () => {
+        console.log('Row pressed:', rowData.description);
+        console.log('About to call _onPress...');
+        console.log('Full rowData object:', JSON.stringify(rowData, null, 2));
+        // Dismiss keyboard first - force immediate dismissal
+        Keyboard.dismiss();
+
+        // Call _onPress directly without delay for better responsiveness
+        console.log('Calling _onPress with rowData:', rowData);
+        _onPress(rowData);
+        console.log('_onPress call completed');
+      };
+
       return (
-        <TouchableHighlight
+        // Use TouchableOpacity instead of Pressable for better touch handling
+        <TouchableOpacity
           style={[
             defaultStyles.rowContainer,
             {
-              backgroundColor: props.listHoverColor || '#c8c7cc',
+              backgroundColor: props.listHoverColor || '#ffffff',
             },
           ]}
-          onPress={() => _onPress(rowData)}
-          underlayColor={props.listUnderlayColor || '#c8c7cc'}
+          onPress={handleRowPress}
+          activeOpacity={0.6}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={`Select ${rowData.description || 'place'}`}
         >
           <View
             style={[
@@ -929,7 +1003,7 @@ export const GooglePlacesAutocomplete = forwardRef<
             {_renderRowData(rowData, item.index)}
             {_renderLoader(rowData)}
           </View>
-        </TouchableHighlight>
+        </TouchableOpacity>
       );
     },
     [
@@ -937,7 +1011,6 @@ export const GooglePlacesAutocomplete = forwardRef<
       _renderLoader,
       _renderRowData,
       props.listHoverColor,
-      props.listUnderlayColor,
       props.styles,
       props.suppressDefaultStyles,
     ]
@@ -973,14 +1046,23 @@ export const GooglePlacesAutocomplete = forwardRef<
           style={[
             props.suppressDefaultStyles ? {} : defaultStyles.listView,
             (props.styles as any)?.listView,
+            { zIndex: 998, elevation: 4 }, // Ensure the list has high z-index
           ]}
           data={dataSource}
           keyExtractor={keyGenerator}
           extraData={[dataSource, props]}
           ItemSeparatorComponent={_renderSeparator}
           renderItem={_renderRow}
-          keyboardShouldPersistTaps={props.keyboardShouldPersistTaps}
+          scrollEnabled={true}
+          removeClippedSubviews={false} // Prevent clipping of touchable areas
+          initialNumToRender={10}
+          maxToRenderPerBatch={20}
+          windowSize={21}
           {...props}
+          keyboardShouldPersistTaps="always" // Always allow taps when keyboard is open
+          nestedScrollEnabled={true} // Allow nested scrolling
+          keyboardDismissMode="none" // Don't dismiss keyboard on scroll
+          pointerEvents="auto" // Ensure the FlatList can receive touch events
         />
       );
     }
@@ -1050,7 +1132,7 @@ export const GooglePlacesAutocomplete = forwardRef<
       return props.renderLeftButton();
     }
     return null;
-  }, [props]);
+  }, [props.renderLeftButton]);
 
   /**
    * Renders the right button component
@@ -1060,7 +1142,7 @@ export const GooglePlacesAutocomplete = forwardRef<
       return props.renderRightButton();
     }
     return null;
-  }, [props]);
+  }, [props.renderRightButton]);
 
   /**
    * Renders the header component
@@ -1070,10 +1152,10 @@ export const GooglePlacesAutocomplete = forwardRef<
       return props.renderHeaderComponent();
     }
     return null;
-  }, [props]);
+  }, [props.renderHeaderComponent]);
 
   /**
-   * Renders the component to be displayed in between the TextInput and the list view
+   * Renders the inbetween component
    */
   const _renderInbetweenComponent = useCallback(() => {
     if (props.inbetweenCompo) {

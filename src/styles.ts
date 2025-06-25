@@ -22,7 +22,8 @@ export const defaultStyles = StyleSheet.create({
   },
   listView: {},
   rowContainer: {
-    minWidth: '100%',
+    minHeight: 44,
+    width: '100%',
   },
   row: {
     backgroundColor: '#FFFFFF',

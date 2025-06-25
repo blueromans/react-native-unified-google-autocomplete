@@ -17,6 +17,7 @@ export type {
   PlusCode,
   PredefinedPlace,
   RequestUrl,
+  ResultType,
 } from './types';
 
 // Export helper functions

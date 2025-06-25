@@ -1,16 +1,21 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
   SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
   Platform,
+  Alert,
 } from 'react-native';
 import { GooglePlacesAutocomplete } from 'react-native-unified-google-autocomplete';
-import type { GooglePlacesAutocompleteRef } from 'react-native-unified-google-autocomplete';
+import type {
+  GooglePlacesAutocompleteRef,
+  ResultType,
+  GooglePlaceDetail,
+} from 'react-native-unified-google-autocomplete';
 
-const API_KEY = 'API_KEY'; // Replace with your actual API key
+const API_KEY = 'API_KEY'; // Replace with your actual Google Places API key from Google Cloud Console
 
 const GooglePlacesExample = () => {
   const [selectedPlace, setSelectedPlace] = useState<{
@@ -20,18 +25,57 @@ const GooglePlacesExample = () => {
 
   const autocompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
 
-  const clearSearch = () => {
+  const clearSearch = useCallback(() => {
     if (autocompleteRef.current) {
       autocompleteRef.current.setAddressText('');
       setSelectedPlace(null);
     }
-  };
+  }, []);
 
-  const getCurrentLocation = () => {
+  const getCurrentLocation = useCallback(() => {
     if (autocompleteRef.current) {
       autocompleteRef.current.getCurrentLocation();
     }
-  };
+  }, []);
+
+  const renderLeftButton = useCallback(() => {
+    return (
+      <TouchableOpacity
+        style={styles.locationButton}
+        onPress={getCurrentLocation}
+      >
+        <Text style={styles.buttonText}>📍</Text>
+      </TouchableOpacity>
+    );
+  }, [getCurrentLocation]);
+
+  const renderRightButton = useCallback(() => {
+    return (
+      <TouchableOpacity style={styles.clearButton} onPress={clearSearch}>
+        <Text style={styles.buttonText}>✕</Text>
+      </TouchableOpacity>
+    );
+  }, [clearSearch]);
+
+  const onPress = useCallback(
+    (data: ResultType, details: GooglePlaceDetail | null = null) => {
+      console.log('Example App onPress called with:', { data, details });
+
+      // Alert to make it very visible when onPress is called
+      Alert.alert('Place Selected', `${data.description}`);
+
+      setSelectedPlace({
+        description: data.description || '',
+        location: details?.geometry?.location
+          ? {
+              latitude: details.geometry.location.lat,
+              longitude: details.geometry.location.lng,
+            }
+          : undefined,
+      });
+    },
+    []
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -48,17 +92,7 @@ const GooglePlacesExample = () => {
           components: Platform.OS === 'ios' ? 'country:us' : 'country:us',
         }}
         fetchDetails={true}
-        onPress={(data, details = null) => {
-          setSelectedPlace({
-            description: data.description,
-            location: details?.geometry?.location
-              ? {
-                  latitude: details.geometry.location.lat,
-                  longitude: details.geometry.location.lng,
-                }
-              : undefined,
-          });
-        }}
+        onPress={onPress}
         onFail={(error) => console.error('Error fetching places:', error)}
         styles={{
           container: styles.autocompleteContainer,
@@ -106,19 +140,8 @@ const GooglePlacesExample = () => {
             },
           },
         ]}
-        renderLeftButton={() => (
-          <TouchableOpacity
-            style={styles.locationButton}
-            onPress={getCurrentLocation}
-          >
-            <Text style={styles.buttonText}>📍</Text>
-          </TouchableOpacity>
-        )}
-        renderRightButton={() => (
-          <TouchableOpacity style={styles.clearButton} onPress={clearSearch}>
-            <Text style={styles.buttonText}>✕</Text>
-          </TouchableOpacity>
-        )}
+        renderLeftButton={renderLeftButton}
+        renderRightButton={renderRightButton}
       />
 
       {selectedPlace && (
