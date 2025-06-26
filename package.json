@@ -1,6 +1,6 @@
 {
   "name": "react-native-unified-google-autocomplete",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Google auto complete",
   "source": "./src/index.tsx",
   "main": "./lib/module/index.js",
