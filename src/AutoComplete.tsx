@@ -1048,7 +1048,6 @@ export const GooglePlacesAutocomplete = forwardRef<
           style={[
             props.suppressDefaultStyles ? {} : defaultStyles.listView,
             (props.styles as any)?.listView,
-            { zIndex: 998, elevation: 4 }, // Ensure the list has high z-index
           ]}
           data={dataSource}
           keyExtractor={keyGenerator}
