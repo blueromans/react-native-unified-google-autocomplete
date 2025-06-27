@@ -1032,6 +1032,11 @@ export const GooglePlacesAutocomplete = forwardRef<
     );
   }, [props.styles, props.suppressDefaultStyles]);
 
+  const ContainerComponent = useMemo(
+    () => (props.isRowScrollable ? ScrollView : View),
+    [props.isRowScrollable]
+  );
+
   /**
    * Renders the FlatList component
    */
@@ -1043,7 +1048,7 @@ export const GooglePlacesAutocomplete = forwardRef<
       dataSource.length > 0
     ) {
       return (
-        <ScrollView
+        <ContainerComponent
           id="result-list-id"
           style={[
             props.suppressDefaultStyles ? {} : defaultStyles.listView,
@@ -1067,7 +1072,7 @@ export const GooglePlacesAutocomplete = forwardRef<
               </View>
             );
           })}
-        </ScrollView>
+        </ContainerComponent>
       );
     }
 
