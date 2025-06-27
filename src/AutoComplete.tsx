@@ -1067,7 +1067,7 @@ export const GooglePlacesAutocomplete = forwardRef<
             const key = keyGenerator();
             return (
               <View key={key}>
-                {index > 0 && _renderSeparator()}
+                {index > 0 && props.isRowScrollable && _renderSeparator()}
                 {_renderRow({ item, index } as ListRenderItemInfo<ResultType>)}
               </View>
             );
@@ -1077,7 +1077,13 @@ export const GooglePlacesAutocomplete = forwardRef<
     }
 
     return null;
-  }, [_renderRow, _renderSeparator, dataSource, listViewDisplayed, props]);
+  }, [
+    _renderRow,
+    _renderSeparator,
+    dataSource,
+    listViewDisplayed,
+    props.isRowScrollable,
+  ]);
 
   /**
    * Renders the list view component, including empty and loader states
