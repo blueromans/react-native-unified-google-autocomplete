@@ -377,6 +377,7 @@ export interface GooglePlacesAutocompleteProps {
     poweredContainer?: StyleProp<ViewStyle>;
     powered?: StyleProp<ViewStyle>;
     predefinedPlacesDescription?: StyleProp<TextStyle>;
+    rowContainer?: StyleProp<ViewStyle>;
   };
   suppressDefaultStyles?: boolean;
   numberOfLines?: number;
