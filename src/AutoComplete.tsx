@@ -19,10 +19,10 @@ import {
 } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Image,
   Keyboard,
   Platform,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -1043,28 +1043,31 @@ export const GooglePlacesAutocomplete = forwardRef<
       dataSource.length > 0
     ) {
       return (
-        <FlatList
+        <ScrollView
           id="result-list-id"
           style={[
             props.suppressDefaultStyles ? {} : defaultStyles.listView,
             (props.styles as any)?.listView,
           ]}
-          data={dataSource}
-          keyExtractor={keyGenerator}
-          extraData={[dataSource, props]}
-          ItemSeparatorComponent={_renderSeparator}
-          renderItem={_renderRow}
           scrollEnabled={true}
-          removeClippedSubviews={false} // Prevent clipping of touchable areas
-          initialNumToRender={10}
-          maxToRenderPerBatch={20}
-          windowSize={21}
-          {...props}
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="always" // Always allow taps when keyboard is open
           nestedScrollEnabled={true} // Allow nested scrolling
           keyboardDismissMode="none" // Don't dismiss keyboard on scroll
-          pointerEvents="auto" // Ensure the FlatList can receive touch events
-        />
+          pointerEvents="auto" // Ensure scrolling and touch events work
+          {...props}
+        >
+          {dataSource?.slice(0, 10).map((item, index) => {
+            const key = keyGenerator();
+            return (
+              <View key={key}>
+                {index > 0 && _renderSeparator()}
+                {_renderRow({ item, index } as ListRenderItemInfo<ResultType>)}
+              </View>
+            );
+          })}
+        </ScrollView>
       );
     }
 
