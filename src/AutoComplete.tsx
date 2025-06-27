@@ -1066,7 +1066,13 @@ export const GooglePlacesAutocomplete = forwardRef<
           {dataSource?.slice(0, 10).map((item, index) => {
             const key = keyGenerator();
             return (
-              <View key={key}>
+              <View
+                key={key}
+                style={[
+                  props.suppressDefaultStyles ? {} : defaultStyles.rowContainer,
+                  (props.styles as any)?.rowContainer,
+                ]}
+              >
                 {index > 0 && props.isRowScrollable && _renderSeparator()}
                 {_renderRow({ item, index } as ListRenderItemInfo<ResultType>)}
               </View>
